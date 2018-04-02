@@ -24,8 +24,13 @@ struct result_queue_struct {
 	int count;
 };
 
+struct request {
+	char keyword[KEYWORD_SIZE];
+	int index;
+};
+
 struct request_queue_struct {
-	char buf[NUM_OF_CLIENTS][KEYWORD_SIZE + 1];
+	struct request buf[NUM_OF_CLIENTS];
 	int in;
 	int out;
 	int count;
