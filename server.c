@@ -125,13 +125,16 @@ int main(int argc, char **argv) {
 		
 		sem_wait(rqq_sem_full_t);
 		sem_wait(rqq_sem_mutex_t);
-
+		
+		printf("1");
 		// get request
 		struct request r = sh_data->request_queue.buf[sh_data->request_queue.out];
+		printf("2");
 		sh_data->request_queue.out = (sh_data->request_queue.out + 1) % NUM_OF_CLIENTS;
-
+		printf("3");
 		sem_post(rqq_sem_mutex_t);
 
+		printf("4");
 
 		// for testing purposes only
 		char rsq_sem_mutex[150];
