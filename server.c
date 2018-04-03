@@ -148,8 +148,8 @@ int main(int argc, char **argv) {
  		strcpy(rsq_sem_empty, argv[3]);
 
  		sprintf(rsq_sem_mutex, "%s%s%d", rsq_sem_mutex, RSQ_SEM_MUTEX, r.index);
- 		sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL r.index);
- 		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY r.index);
+ 		sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL, r.index);
+ 		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY, r.index);
 
 		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR);
  		if (rsq_sem_mutex_t < 0) {
