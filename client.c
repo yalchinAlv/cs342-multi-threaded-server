@@ -153,14 +153,14 @@ int main(int argc, char **argv) {
  		}
  		printf("sem %s created\n", rsq_sem_mutex);
 
- 		sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR | O_CREAT, 0660, 1);
+ 		sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR | O_CREAT, 0660, 0);
  		if (rsq_sem_full_t < 0) {
  			perror("can not create semaphore\n");
  			exit (1);
  		}
  		printf("sem %s created\n", rsq_sem_full);
 
- 		sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR | O_CREAT, 0660, 1);
+ 		sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR | O_CREAT, 0660, BUFSIZE);
  		if (rsq_sem_empty_t < 0) {
  			perror("can not create semaphore\n");
  			exit (1);
