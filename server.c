@@ -123,18 +123,20 @@ int main(int argc, char **argv) {
 	// handle clients
 	for (int i = 0; i < 5; i++) {
 		
+		printf("-1\n");
 		sem_wait(rqq_sem_full_t);
+		printf("0\n");
 		sem_wait(rqq_sem_mutex_t);
 		
-		printf("1");
+		printf("1\n");
 		// get request
 		struct request r = sh_data->request_queue.buf[sh_data->request_queue.out];
-		printf("2");
+		printf("2\n");
 		sh_data->request_queue.out = (sh_data->request_queue.out + 1) % NUM_OF_CLIENTS;
-		printf("3");
+		printf("3\n");
 		sem_post(rqq_sem_mutex_t);
 
-		printf("4");
+		printf("4\n");
 
 		// for testing purposes only
 		char rsq_sem_mutex[150];
@@ -145,9 +147,9 @@ int main(int argc, char **argv) {
  		strcpy(rsq_sem_full, argv[3]);
  		strcpy(rsq_sem_empty, argv[3]);
 
- 		sprintf(rsq_sem_mutex, "%s%d", rsq_sem_mutex, r.index);
- 		sprintf(rsq_sem_full, "%s%d", rsq_sem_full, r.index);
- 		sprintf(rsq_sem_empty, "%s%d", rsq_sem_empty, r.index);
+ 		sprintf(rsq_sem_mutex, "%s%s%d", rsq_sem_mutex, RSQ_SEM_MUTEX, r.index);
+ 		sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL r.index);
+ 		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY r.index);
 
 		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR);
  		if (rsq_sem_mutex_t < 0) {
