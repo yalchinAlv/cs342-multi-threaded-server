@@ -142,9 +142,9 @@ int main(int argc, char **argv) {
  		strcpy(rsq_sem_full, argv[3]);
  		strcpy(rsq_sem_empty, argv[3]);
 
- 		sprintf(rsq_sem_mutex, "%s%d", rsq_sem_mutex, index);
- 		sprintf(rsq_sem_full, "%s%d", rsq_sem_full, index);
- 		sprintf(rsq_sem_empty, "%s%d", rsq_sem_empty, index);
+ 		sprintf(rsq_sem_mutex, "%s%s%d", rsq_sem_mutex, RSQ_SEM_MUTEX,index);
+ 		sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL, index);
+ 		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY, index);
 
  		sem_unlink(rsq_sem_mutex);
  		sem_unlink(rsq_sem_full);
