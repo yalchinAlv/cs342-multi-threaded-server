@@ -146,6 +146,10 @@ int main(int argc, char **argv) {
  		sprintf(rsq_sem_full, "%s%d", rsq_sem_full, index);
  		sprintf(rsq_sem_empty, "%s%d", rsq_sem_empty, index);
 
+ 		sem_unlink(rsq_sem_mutex);
+ 		sem_unlink(rsq_sem_full);
+ 		sem_unlink(rsq_sem_empty);
+
  		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR | O_CREAT, 0660, 1);
  		if (rsq_sem_mutex_t < 0) {
  			perror("can not create semaphore\n");
