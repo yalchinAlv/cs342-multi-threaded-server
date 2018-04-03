@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
 
  			result = sdp->result_queue[index].buf[sdp->result_queue[index].in];
  			printf("%d\n", result);
- 			sdp->result_queue[index].out = (sdp->result_queue[index].out + 1) % NUM_OF_CLIENTS;
+ 			sdp->result_queue[index].out = (sdp->result_queue[index].out + 1) % BUFSIZE;
 
  			sem_post(rsq_sem_mutex_t);
  			sem_post(rsq_sem_empty_t);
