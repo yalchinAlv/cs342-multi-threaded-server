@@ -158,23 +158,32 @@ int main(int argc, char **argv) {
  			perror("can not create semaphore\n");
  			exit (1);
  		}
+ 		printf("sem %s created\n", rsq_sem_mutex);
 
  		sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR);
  		if (rsq_sem_full_t < 0) {
  			perror("can not create semaphore\n");
  			exit (1);
  		}
+ 		printf("sem %s created\n", rsq_sem_full);
+
 
  		sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR);
  		if (rsq_sem_empty_t < 0) {
  			perror("can not create semaphore\n");
  			exit (1);
  		}
+ 		printf("sem %s created\n", rsq_sem_empty);
+
 
 		printf("6\n");
 
 		for (int k = 0; k < 3; k++) {
+
+			printf("6.5\n");
 			sem_wait(rsq_sem_empty_t);
+
+			printf("6.6\n");
 			sem_wait(rsq_sem_mutex_t);
 
 			printf("7\n");
