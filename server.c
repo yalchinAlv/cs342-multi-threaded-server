@@ -151,6 +151,8 @@ int main(int argc, char **argv) {
  		sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL, r.index);
  		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY, r.index);
 
+		printf("5\n");
+
 		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR);
  		if (rsq_sem_mutex_t < 0) {
  			perror("can not create semaphore\n");
@@ -169,13 +171,17 @@ int main(int argc, char **argv) {
  			exit (1);
  		}
 
+		printf("6\n");
+
 		for (int k = 0; k < 3; k++) {
 			sem_wait(rsq_sem_empty_t);
 			sem_wait(rsq_sem_mutex_t);
 
+			printf("7\n");
 			sh_data->result_queue[r.index].buf[sh_data->result_queue[r.index].in] = k;
+			printf("8\n");
 			sh_data->result_queue[r.index].in = (sh_data->result_queue[r.index].in + 1) % BUFSIZE;
-
+			printf("9\n");
 			sem_post(rsq_sem_mutex_t);
  			sem_post(rsq_sem_full_t);
 		}
