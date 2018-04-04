@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <semaphore.h>
+#include <pthread.h>
 #include "common.h"
 
 void init_shared_data(struct shared_data* sh_data) {
@@ -28,12 +29,99 @@ struct thread_arg {
 	char keyword[KEYWORD_SIZE];
 	int index;
 	char input_file_name[128];
-	char shm_name[128];
+	//char shm_name[128];
+	struct shared_data *sh_data;
+	char sem_name[128];
 };
 
-static void *handle_request(void *arg) {
+void *handle_request(void *a) {
+	// line number to be sent to client
+	int line_number = 1;
 
+	// assign the argument
+	struct thread_arg *arg = (struct thread_arg*) a;
+
+	// open semaphores
+	// for testing purposes only
+	char rsq_sem_mutex[150];
+	char rsq_sem_full[150];
+	char rsq_sem_empty[150];
+
+	strcpy(rsq_sem_mutex, arg->sem_name);
+	strcpy(rsq_sem_full, arg->sem_name);
+	strcpy(rsq_sem_empty, arg->sem_name);
+
+	sprintf(rsq_sem_mutex, "%s%s%d", rsq_sem_mutex, RSQ_SEM_MUTEX, arg->index);
+	sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL, arg->index);
+	sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY, arg->index);
+
+
+	sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR);
+	if (rsq_sem_mutex_t < 0) {
+		perror("can not create semaphore\n");
+		exit (1);
+	}
+	printf("sem %s created\n", rsq_sem_mutex);
+
+	sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR);
+	if (rsq_sem_full_t < 0) {
+		perror("can not create semaphore\n");
+		exit (1);
+	}
+	//printf("sem %s created\n", rsq_sem_full);
+
+
+	sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR);
+	if (rsq_sem_empty_t < 0) {
+		perror("can not create semaphore\n");
+		exit (1);
+	}
+	//printf("sem %s created\n", rsq_sem_empty);
+
+	// open the file
+	FILE *fp;
+
+    char line[LINE_SIZE];
+
+    fp = fopen(arg->input_file_name,"r");
+    if(!fp)
+	{
+        perror("could not find the file");
+        exit(0);
+	}
+
+	// read the lines untill the end of the file
+	while ( fgets ( line, LINE_SIZE, fp ) != NULL ) /* read a line */
+    {	
+    	// if the keyword is found in this line
+    	// send the keyword to result queue
+    	if(strstr(line, arg->keyword)) {
+
+			sem_wait(rsq_sem_empty_t);
+			sem_wait(rsq_sem_mutex_t);
+
+			arg->sh_data->result_queue[arg->index].buf[arg->sh_data->result_queue[arg->index].in] = line_number;
+			arg->sh_data->result_queue[arg->index].in = (arg->sh_data->result_queue[arg->index].in + 1) % BUFSIZE;
+
+			sem_post(rsq_sem_mutex_t);
+ 			sem_post(rsq_sem_full_t);
+    	}
+
+    	line_number++;
+    }
+    sem_wait(rsq_sem_empty_t);
+	sem_wait(rsq_sem_mutex_t);
+
+	arg->sh_data->result_queue[arg->index].buf[arg->sh_data->result_queue[arg->index].in] = -1;
+	arg->sh_data->result_queue[arg->index].in = (arg->sh_data->result_queue[arg->index].in + 1) % BUFSIZE;
+
+	sem_post(rsq_sem_mutex_t);
+	sem_post(rsq_sem_full_t);
+
+    // close the file
+    fclose ( fp );
 }
+
 
 int main(int argc, char **argv) {
 
@@ -121,87 +209,32 @@ int main(int argc, char **argv) {
 	}
 
 	// handle clients
-	for (int i = 0; i < 5; i++) {
+	while(1) {
 		
-		printf("-1\n");
 		sem_wait(rqq_sem_full_t);
-		printf("0\n");
 		sem_wait(rqq_sem_mutex_t);
 		
-		printf("1\n");
 		// get request
 		struct request r = sh_data->request_queue.buf[sh_data->request_queue.out];
-		printf("2\n");
 		sh_data->request_queue.out = (sh_data->request_queue.out + 1) % NUM_OF_CLIENTS;
-		printf("3\n");
+		
 		sem_post(rqq_sem_mutex_t);
 
-		printf("4\n");
+		/* create an argument for the thread */
+		struct thread_arg arg;
 
-		// for testing purposes only
-		char rsq_sem_mutex[150];
- 		char rsq_sem_full[150];
- 		char rsq_sem_empty[150];
+		strcpy(arg.keyword, r.keyword);
+		strcpy(arg.input_file_name, input_file_name);
+		strcpy(arg.sem_name, argv[3]);
+		arg.index = r.index;
+		arg.sh_data = sh_data;
 
- 		strcpy(rsq_sem_mutex, argv[3]);
- 		strcpy(rsq_sem_full, argv[3]);
- 		strcpy(rsq_sem_empty, argv[3]);
+		/* create a thread which handles the request */
+		pthread_t searcher;
 
- 		sprintf(rsq_sem_mutex, "%s%s%d", rsq_sem_mutex, RSQ_SEM_MUTEX, r.index);
- 		sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL, r.index);
- 		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY, r.index);
-
-		printf("5\n");
-
-		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR);
- 		if (rsq_sem_mutex_t < 0) {
- 			perror("can not create semaphore\n");
- 			exit (1);
- 		}
- 		printf("sem %s created\n", rsq_sem_mutex);
-
- 		sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR);
- 		if (rsq_sem_full_t < 0) {
- 			perror("can not create semaphore\n");
- 			exit (1);
- 		}
- 		printf("sem %s created\n", rsq_sem_full);
-
-
- 		sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR);
- 		if (rsq_sem_empty_t < 0) {
- 			perror("can not create semaphore\n");
- 			exit (1);
- 		}
- 		printf("sem %s created\n", rsq_sem_empty);
-
-
-		printf("6\n");
-
-		for (int k = 0; k < 3; k++) {
-
-			printf("6.5\n");
-			sem_wait(rsq_sem_empty_t);
-
-			printf("6.6\n");
-			sem_wait(rsq_sem_mutex_t);
-
-			printf("7\n");
-			sh_data->result_queue[r.index].buf[sh_data->result_queue[r.index].in] = k;
-			printf("8\n");
-			sh_data->result_queue[r.index].in = (sh_data->result_queue[r.index].in + 1) % BUFSIZE;
-			printf("9\n");
-			sem_post(rsq_sem_mutex_t);
- 			sem_post(rsq_sem_full_t);
+		if(pthread_create(&searcher, NULL, handle_request, &arg)) {
+			fprintf(stderr, "Error creating thread\n");
+			exit(1);
 		}
-		sem_wait(rsq_sem_empty_t);
-		sem_wait(rsq_sem_mutex_t);
-
-		sh_data->result_queue[r.index].buf[sh_data->result_queue[r.index].in] = -1;
-		sh_data->result_queue[r.index].in = (sh_data->result_queue[r.index].in + 1) % BUFSIZE;
-
-		sem_post(rsq_sem_mutex_t);
-		sem_post(rsq_sem_full_t);
-
 	}
 }

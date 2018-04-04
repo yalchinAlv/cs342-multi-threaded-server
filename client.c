@@ -51,10 +51,10 @@ int main(int argc, char **argv) {
   		perror ("can't open shm\n");
   		exit(1);
   	}
-  	printf("shm open success, fd = %d\n", fd);
+  	//printf("shm open success, fd = %d\n", fd);
 
   	fstat(fd, &sbuf);
-  	printf("shm_size=%d\n", (int) sbuf.st_size);
+  	//printf("shm_size=%d\n", (int) sbuf.st_size);
 
   	/* map the shared memory */
   	shm_start = mmap(NULL, sbuf.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   		perror("can't map the shared memory\n");
   		exit(1);
   	}
-  	printf("mapped shm; start_address=%u\n", (unsigned int) shm_start);
+  	//printf("mapped shm; start_address=%u\n", (unsigned int) shm_start);
   	close(fd);
 
   	/* create the shared memory segment's struct */
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
  		perror("can not open semaphore\n");
  		exit(1);
  	}
- 	printf("sem %s opened\n", qs_sem_mutex);
+ 	//printf("sem %s opened\n", qs_sem_mutex);
 
 
  	rqq_sem_mutex_t = sem_open(rqq_sem_mutex, O_RDWR);
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
  		perror("can not open semaphore\n");
  		exit(1);
  	}
- 	printf("sem %s opened\n", rqq_sem_mutex);
+ 	//printf("sem %s opened\n", rqq_sem_mutex);
 
  	rqq_sem_full_t = sem_open(rqq_sem_full, O_RDWR);
  	
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
  		perror("can not open semaphore\n");
  		exit(1);
  	}
- 	printf("sem %s opened\n", rqq_sem_full);
+ 	//printf("sem %s opened\n", rqq_sem_full);
 
 
  	/* access the queue state array */
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
  	
  	/* if couldn't find unused queue - exit */
  	if (index == -1) {
- 		printf("too	many clients started\n");
+ 		printf("too many clients started\n");
  		exit(1);
  		/* I MAY WANT TO CLOSE THE SEMAPHORES HERE BEFORE EXITING */
  	} else { /* found */
@@ -134,13 +134,31 @@ int main(int argc, char **argv) {
  		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY, index);
 
 
- 		//sem_unlink(rsq_sem_mutex);
- 		//sem_unlink(rsq_sem_full);
- 		//sem_unlink(rsq_sem_empty);
-
+ 		
  		struct request r;
  		strcpy(r.keyword, keyword);
  		r.index = index;
+
+		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR | O_CREAT, 0660, 1);
+ 		if (rsq_sem_mutex_t < 0) {
+ 			perror("can not create semaphore\n");
+ 			exit (1);
+ 		}
+ 		//printf("sem %s created\n", rsq_sem_mutex);
+
+ 		sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR | O_CREAT, 0660, 0);
+ 		if (rsq_sem_full_t < 0) {
+ 			perror("can not create semaphore\n");
+ 			exit (1);
+ 		}
+ 		//printf("sem %s created\n", rsq_sem_full);
+
+ 		sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR | O_CREAT, 0660, BUFSIZE);
+ 		if (rsq_sem_empty_t < 0) {
+ 			perror("can not create semaphore\n");
+ 			exit (1);
+ 		}
+ 		//printf("sem %s created\n", rsq_sem_empty);
 
  		/* make request */
  		sem_wait(rqq_sem_mutex_t);
@@ -148,47 +166,42 @@ int main(int argc, char **argv) {
  		sdp->request_queue.buf[sdp->request_queue.in] = r;
  		sdp->request_queue.in = (sdp->request_queue.in + 1) % NUM_OF_CLIENTS;
 
- 		sem_post(rqq_sem_mutex_t);
+ 		sem_post( rqq_sem_mutex_t);
  		sem_post(rqq_sem_full_t);
 
 
  		
- 		
-
- 		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR | O_CREAT, 0660, 1);
- 		if (rsq_sem_mutex_t < 0) {
- 			perror("can not create semaphore\n");
- 			exit (1);
- 		}
- 		printf("sem %s created\n", rsq_sem_mutex);
-
- 		sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR | O_CREAT, 0660, 0);
- 		if (rsq_sem_full_t < 0) {
- 			perror("can not create semaphore\n");
- 			exit (1);
- 		}
- 		printf("sem %s created\n", rsq_sem_full);
-
- 		sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR | O_CREAT, 0660, BUFSIZE);
- 		if (rsq_sem_empty_t < 0) {
- 			perror("can not create semaphore\n");
- 			exit (1);
- 		}
- 		printf("sem %s created\n", rsq_sem_empty);
-
-
  		/* get output */
- 		int result;
+ 		int result = 0;
  		do {
  			sem_wait(rsq_sem_full_t);
  			sem_wait(rsq_sem_mutex_t);
 
  			result = sdp->result_queue[index].buf[sdp->result_queue[index].out];
- 			printf("%d\n", result);
+ 			
+ 			if (result != -1)
+ 				printf("%d\n", result);
+ 			
  			sdp->result_queue[index].out = (sdp->result_queue[index].out + 1) % BUFSIZE;
 
  			sem_post(rsq_sem_mutex_t);
  			sem_post(rsq_sem_empty_t);
  		} while (result != -1);
+
+ 		/* free the state queue */
+		sem_wait(qs_sem_mutex_t);
+
+		sdp->queue_state[i] = 0;
+
+ 		sem_post(qs_sem_mutex_t);
+
+ 		/* close and unlink semaphores */
+ 		sem_close(rsq_sem_mutex_t);
+ 		sem_close(rsq_sem_full_t);
+ 		sem_close(rsq_sem_empty_t);
+
+ 		sem_unlink(rsq_sem_mutex);
+ 		sem_unlink(rsq_sem_full);
+ 		sem_unlink(rsq_sem_empty);
  	}
 }

@@ -4,7 +4,7 @@
 #define NUM_OF_CLIENTS 10
 #define BUFSIZE 100
 #define KEYWORD_SIZE 128
-
+#define LINE_SIZE 1024
 // semaphore sufixes for queue state
 #define QS_SEM_MUTEX "qs_sem_mutex"
 
