@@ -8,11 +8,30 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <semaphore.h>
-
+#include <signal.h>
 #include "common.h"
+
+char rsq_sem_mutex[150];
+char rsq_sem_full[150];
+char rsq_sem_empty[150];
+
+void handler(int dummy) {
+	// unlink and close semaphores
+	sem_unlink(rsq_sem_mutex);
+	sem_unlink(rsq_sem_full);
+	sem_unlink(rsq_sem_empty);
+	
+	// clean up shared memory
+	// shm_unlink(shm_name);
+
+	exit(0);
+}
 
 int main(int argc, char **argv) {
 
+	// signal handler for Ctrl+C
+	signal(SIGINT, handler);
+	
 	/***CHECK IF ENOUGH ARGUMENTS START***/
 	if( argc != 4 ) {
       printf("Invalid arguments. Exiting...");
@@ -73,7 +92,7 @@ int main(int argc, char **argv) {
  	/* they should already be created and initialized */
  	qs_sem_mutex_t = sem_open(qs_sem_mutex, O_RDWR);
  	
- 	if (qs_sem_mutex_t < 0) {
+ 	if (qs_sem_mutex_t == SEM_FAILED) {
  		perror("can not open semaphore\n");
  		exit(1);
  	}
@@ -82,7 +101,7 @@ int main(int argc, char **argv) {
 
  	rqq_sem_mutex_t = sem_open(rqq_sem_mutex, O_RDWR);
  	
- 	if (rqq_sem_mutex_t < 0) {
+ 	if (rqq_sem_mutex_t == SEM_FAILED) {
  		perror("can not open semaphore\n");
  		exit(1);
  	}
@@ -90,7 +109,7 @@ int main(int argc, char **argv) {
 
  	rqq_sem_full_t = sem_open(rqq_sem_full, O_RDWR);
  	
- 	if (rqq_sem_full_t < 0) {
+ 	if (rqq_sem_full_t == SEM_FAILED) {
  		perror("can not open semaphore\n");
  		exit(1);
  	}
@@ -121,9 +140,9 @@ int main(int argc, char **argv) {
  	} else { /* found */
 
  		/* create semaphores for request queue*/
- 		char rsq_sem_mutex[150];
- 		char rsq_sem_full[150];
- 		char rsq_sem_empty[150];
+ 		// char rsq_sem_mutex[150];
+ 		// char rsq_sem_full[150];
+ 		// char rsq_sem_empty[150];
 
  		strcpy(rsq_sem_mutex, argv[3]);
  		strcpy(rsq_sem_full, argv[3]);
@@ -133,6 +152,10 @@ int main(int argc, char **argv) {
  		sprintf(rsq_sem_full, "%s%s%d", rsq_sem_full, RSQ_SEM_FULL, index);
  		sprintf(rsq_sem_empty, "%s%s%d", rsq_sem_empty, RSQ_SEM_EMPTY, index);
 
+ 		// unlink the semaphores with the same names
+ 		sem_unlink(rsq_sem_mutex);
+ 		sem_unlink(rsq_sem_full);
+ 		sem_unlink(rsq_sem_empty);
 
  		
  		struct request r;
@@ -140,21 +163,21 @@ int main(int argc, char **argv) {
  		r.index = index;
 
 		sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR | O_CREAT, 0660, 1);
- 		if (rsq_sem_mutex_t < 0) {
+ 		if (rsq_sem_mutex_t == SEM_FAILED) {
  			perror("can not create semaphore\n");
  			exit (1);
  		}
  		//printf("sem %s created\n", rsq_sem_mutex);
 
  		sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR | O_CREAT, 0660, 0);
- 		if (rsq_sem_full_t < 0) {
+ 		if (rsq_sem_full_t == SEM_FAILED) {
  			perror("can not create semaphore\n");
  			exit (1);
  		}
  		//printf("sem %s created\n", rsq_sem_full);
 
  		sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR | O_CREAT, 0660, BUFSIZE);
- 		if (rsq_sem_empty_t < 0) {
+ 		if (rsq_sem_empty_t == SEM_FAILED) {
  			perror("can not create semaphore\n");
  			exit (1);
  		}
@@ -166,7 +189,7 @@ int main(int argc, char **argv) {
  		sdp->request_queue.buf[sdp->request_queue.in] = r;
  		sdp->request_queue.in = (sdp->request_queue.in + 1) % NUM_OF_CLIENTS;
 
- 		sem_post( rqq_sem_mutex_t);
+ 		sem_post(rqq_sem_mutex_t);
  		sem_post(rqq_sem_full_t);
 
 
@@ -174,7 +197,9 @@ int main(int argc, char **argv) {
  		/* get output */
  		int result = 0;
  		do {
+ 			// printf("Waiting for full_t\n");
  			sem_wait(rsq_sem_full_t);
+ 			// printf("Waiting for mutex\n");
  			sem_wait(rsq_sem_mutex_t);
 
  			result = sdp->result_queue[index].buf[sdp->result_queue[index].out];
@@ -191,10 +216,11 @@ int main(int argc, char **argv) {
  		/* free the state queue */
 		sem_wait(qs_sem_mutex_t);
 
-		sdp->queue_state[i] = 0;
+		sdp->queue_state[index] = 0;
 
  		sem_post(qs_sem_mutex_t);
 
+ 		// printf("FINISHED!!!!!!!!!!\n");
  		/* close and unlink semaphores */
  		sem_close(rsq_sem_mutex_t);
  		sem_close(rsq_sem_full_t);

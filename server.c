@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <signal.h>
 #include "common.h"
 
 void init_shared_data(struct shared_data* sh_data) {
@@ -18,11 +19,22 @@ void init_shared_data(struct shared_data* sh_data) {
 		sh_data->result_queue[i].in = 0;
 		sh_data->result_queue[i].out = 0;
 		sh_data->result_queue[i].count = 0;
+		for (int k = 0; k < BUFSIZE; k++) {
+			sh_data->result_queue[i].buf[k] = 0;
+		}
 	}
 
 	sh_data->request_queue.in = 0;
 	sh_data->request_queue.out = 0;
 	sh_data->request_queue.count = 0;
+}
+
+void print_arr(int arr[], int index) {
+	printf("%d: ", index);
+	for (int i = 0; i < BUFSIZE; i++) {
+		printf("%d, ", arr[i]);
+	}
+	printf("\n");
 }
 
 struct thread_arg {
@@ -57,14 +69,14 @@ void *handle_request(void *a) {
 
 
 	sem_t *rsq_sem_mutex_t = sem_open(rsq_sem_mutex, O_RDWR);
-	if (rsq_sem_mutex_t < 0) {
+	if (rsq_sem_mutex_t == SEM_FAILED) {
 		perror("can not create semaphore\n");
 		exit (1);
 	}
-	printf("sem %s created\n", rsq_sem_mutex);
+	// printf("sem %s created\n", rsq_sem_mutex);
 
 	sem_t *rsq_sem_full_t = sem_open(rsq_sem_full, O_RDWR);
-	if (rsq_sem_full_t < 0) {
+	if (rsq_sem_full_t == SEM_FAILED) {
 		perror("can not create semaphore\n");
 		exit (1);
 	}
@@ -72,7 +84,7 @@ void *handle_request(void *a) {
 
 
 	sem_t *rsq_sem_empty_t = sem_open(rsq_sem_empty, O_RDWR);
-	if (rsq_sem_empty_t < 0) {
+	if (rsq_sem_empty_t == SEM_FAILED) {
 		perror("can not create semaphore\n");
 		exit (1);
 	}
@@ -97,21 +109,55 @@ void *handle_request(void *a) {
     	// send the keyword to result queue
     	if(strstr(line, arg->keyword)) {
 
-			sem_wait(rsq_sem_empty_t);
+			// if (arg->index == 0) {
+			// 	printf("in thread %d waiting for sem empty that\n", arg->index);
+			// }
+		    sem_wait(rsq_sem_empty_t);
+
+		 //    if (arg->index == 0) {
+			// 	printf("in thread %d waiting for mutex that\n", arg->index);
+			// }
 			sem_wait(rsq_sem_mutex_t);
 
+			// if (arg->index == 0) {
+			// 	printf("in thread %d done waiting for mutex that\n", arg->index);
+			// }
+			// printf("sending to %d\n", arg->index);
 			arg->sh_data->result_queue[arg->index].buf[arg->sh_data->result_queue[arg->index].in] = line_number;
 			arg->sh_data->result_queue[arg->index].in = (arg->sh_data->result_queue[arg->index].in + 1) % BUFSIZE;
+			// print_arr(arg->sh_data->result_queue[arg->index].buf, arg->index);
 
+			// if (arg->index == 0) {
+			// 	printf("in thread %d posting mutex\n", arg->index);
+			// }
 			sem_post(rsq_sem_mutex_t);
- 			sem_post(rsq_sem_full_t);
+
+			// if (arg->index == 0) {
+			// 	printf("in thread %d posted mutex\n", arg->index);
+			// }
+	 		sem_post(rsq_sem_full_t);
+
+			// if (arg->index == 0) {
+			// 	printf("in thread %d posted full\n", arg->index);
+			// }
     	}
 
     	line_number++;
     }
+
+ //    if (arg->index == 0) {
+	// 	printf("in thread %d waiting for sem empty that is -1\n", arg->index);
+	// }
     sem_wait(rsq_sem_empty_t);
+
+ //    if (arg->index == 0) {
+	// 	printf("in thread %d waiting for mutex that is -1\n", arg->index);
+	// }
 	sem_wait(rsq_sem_mutex_t);
 
+	// if (arg->index == 0) {
+	// 	printf("in thread %d done waiting for mutex that is -1\n", arg->index);
+	// }
 	arg->sh_data->result_queue[arg->index].buf[arg->sh_data->result_queue[arg->index].in] = -1;
 	arg->sh_data->result_queue[arg->index].in = (arg->sh_data->result_queue[arg->index].in + 1) % BUFSIZE;
 
@@ -119,26 +165,51 @@ void *handle_request(void *a) {
 	sem_post(rsq_sem_full_t);
 
     // close the file
+    // printf("closing file for thread %d\n", arg->index);
     fclose ( fp );
+    free(a);
 }
 
+char shm_name[128];
+char qs_sem_mutex[150];
+char rqq_sem_mutex[150];
+char rqq_sem_full[150];
+
+
+void handler(int dummy) {
+	// unlink and close semaphores
+	sem_unlink(qs_sem_mutex);
+	sem_unlink(rqq_sem_mutex);
+	sem_unlink(rqq_sem_full);
+	
+	// clean up shared memory
+	shm_unlink(shm_name);
+
+	exit(0);
+}
 
 int main(int argc, char **argv) {
 
+	// signal handler for Ctrl+C
+	signal(SIGINT, handler);
+	
+	// printf("%d\n", SEM_FAILED);
 	int fd;
 	struct stat sbuf;
 	void *shared_mem;
 	struct shared_data *sh_data;
 	char input_file_name[128];
 
-	char shm_name[128];
-	char qs_sem_mutex[150];
-	char rqq_sem_mutex[150];
-	char rqq_sem_full[150];
+	// char shm_name[128];
+	// char qs_sem_mutex[150];
+	// char rqq_sem_mutex[150];
+	// char rqq_sem_full[150];
 
 	sem_t *qs_sem_mutex_t;
 	sem_t *rqq_sem_mutex_t;
 	sem_t *rqq_sem_full_t;
+
+	// pthread_t threads[NUM_OF_CLIENTS];
 
 	if (argc != 4) {
 		printf("usage: server <shm_name> <input_file_name> <sem_name>");
@@ -191,19 +262,19 @@ int main(int argc, char **argv) {
 
 	// create and initialize semaphores
 	qs_sem_mutex_t = sem_open(qs_sem_mutex, O_RDWR | O_CREAT, 0660, 1);
-	if (qs_sem_mutex_t < 0) {
+	if (qs_sem_mutex_t == SEM_FAILED) {
 		perror("can not create semaphore\n");
 		exit (1);
 	}
 
 	rqq_sem_mutex_t = sem_open(rqq_sem_mutex, O_RDWR | O_CREAT, 0660, 1);
-	if (rqq_sem_mutex_t < 0) {
+	if (rqq_sem_mutex_t == SEM_FAILED) {
 		perror("can not create semaphore\n");
 		exit (1);
 	}
 
 	rqq_sem_full_t = sem_open(rqq_sem_full, O_RDWR | O_CREAT, 0660, 0);
-	if (rqq_sem_full_t < 0) {
+	if (rqq_sem_full_t == SEM_FAILED) {
 		perror("can not create semaphore\n");
 		exit (1);
 	}
@@ -221,18 +292,18 @@ int main(int argc, char **argv) {
 		sem_post(rqq_sem_mutex_t);
 
 		/* create an argument for the thread */
-		struct thread_arg arg;
+		struct thread_arg *arg = malloc(sizeof(struct thread_arg));
 
-		strcpy(arg.keyword, r.keyword);
-		strcpy(arg.input_file_name, input_file_name);
-		strcpy(arg.sem_name, argv[3]);
-		arg.index = r.index;
-		arg.sh_data = sh_data;
+		strcpy(arg->keyword, r.keyword);
+		strcpy(arg->input_file_name, input_file_name);
+		strcpy(arg->sem_name, argv[3]);
+		arg->index = r.index;
+		arg->sh_data = sh_data;
+
+		pthread_t pid;
 
 		/* create a thread which handles the request */
-		pthread_t searcher;
-
-		if(pthread_create(&searcher, NULL, handle_request, &arg)) {
+		if(pthread_create(&pid, NULL, handle_request, (void *)arg)) {
 			fprintf(stderr, "Error creating thread\n");
 			exit(1);
 		}
